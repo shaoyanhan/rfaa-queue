@@ -9,13 +9,19 @@ def load_config(config_path):
     with open(config_path, 'r') as file:
         return yaml.safe_load(file)
 
+# Load complex parameters from JSON file
+def load_json_params(json_path):
+    with open(json_path, 'r') as file:
+        return json.load(file)
+
 # Merge user params with defaults, overriding defaults if user provided values
 def merge_params(default_params, user_params):
     for key, value in user_params.items():
-        if isinstance(value, dict) and key in default_params:
-            default_params[key] = merge_params(default_params[key], value)
-        else:
-            default_params[key] = value
+        # if isinstance(value, dict) and key in default_params: # Recursively merge nested dictionaries
+        #     default_params[key] = merge_params(default_params[key], value)
+        # else:
+        #     default_params[key] = value
+        default_params[key] = value
     return default_params
 
 # Validate required parameters
@@ -24,15 +30,6 @@ def validate_params(params):
     missing_keys = [key for key in required_keys if key not in params]
     if missing_keys:
         print(f"Error: Missing required parameter(s): {', '.join(missing_keys)}")
-        print_help()
-        sys.exit(1)
-
-# Parse JSON input for complex parameters
-def parse_json_param(param_str):
-    try:
-        return json.loads(param_str)
-    except json.JSONDecodeError:
-        print(f"Error: Invalid JSON format for parameter: {param_str}")
         print_help()
         sys.exit(1)
 
@@ -46,8 +43,7 @@ Usage:
 Options:
   -i, --input_config_path PATH     Path to the input configuration files.
   -o, --output_path PATH           Path to the output directory.
-  -p, --job_core_num JSON          JSON string for core numbers per job type.
-  -m, --job_mem_num JSON           JSON string for memory allocation per job type.
+  -j, --json JSON_FILE             Path to JSON file for job_core_num and job_mem_num parameters (See configuration.yaml).
   -k, --total_core_num INT         Total number of cores (default: auto).
   -e, --total_mem_num INT          Total memory in GB (default: auto).
   -b, --mem_buffer INT             Memory buffer in GB (default: 10).
@@ -66,8 +62,7 @@ def main():
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("-i", "--input_config_path", type=str, help="Path to the input configuration files")
     parser.add_argument("-o", "--output_path", type=str, help="Path to the output directory")
-    parser.add_argument("-p", "--job_core_num", type=str, help="Core numbers per job type in JSON format")
-    parser.add_argument("-m", "--job_mem_num", type=str, help="Memory allocation per job type in JSON format")
+    parser.add_argument("-j", "--json", type=str, help="Path to JSON file for job_core_num and job_mem_num parameters (See configuration.yaml)")
     parser.add_argument("-k", "--total_core_num", type=str, help="Total number of cores (default: auto)")
     parser.add_argument("-e", "--total_mem_num", type=str, help="Total memory in GB (default: auto)")
     parser.add_argument("-b", "--mem_buffer", type=int, help="Memory buffer in GB (default: 10)")
@@ -91,17 +86,16 @@ def main():
         sys.exit(1)
         
     default_params = load_config(config_path)
+
+    # Load complex parameters from JSON file if provided, and update default configuration
+    if args.json:
+        complex_params = load_json_params(args.json)
+        default_params.update(complex_params)
     
     # Override default configuration with command-line arguments
     user_params = vars(args)
-    config_params = {k: v for k, v in user_params.items() if v is not None}
+    config_params = {k: v for k, v in user_params.items() if v is not None and k != 'json'}
 
-    # Parse JSON strings for complex parameters
-    if 'job_core_num' in config_params:
-        config_params['job_core_num'] = parse_json_param(config_params['job_core_num'])
-    if 'job_mem_num' in config_params:
-        config_params['job_mem_num'] = parse_json_param(config_params['job_mem_num'])
-    
     # Merge the user-provided parameters with the default configuration
     final_params = merge_params(default_params, config_params)
     
