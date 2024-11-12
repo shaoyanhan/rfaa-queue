@@ -2,24 +2,41 @@ input_config_path: test_files/input_config
 
 output_path: rfaa_output
 
+log_path: rfaa_log
+
+db_uniref_path:
+
+db_bfd_path:
+
+db_pdb_path:
+
+rfaa_pipe_path:
+
 job_core_num:
   signalp6: 2
-  hhblits: 4
+  hhblits_uniref_1: 4
+  hhblits_uniref_2: 4
+  hhblits_uniref_3: 4
+  hhblits_bfd: 4
   psipred: 1
   hhsearch: 4
 
 job_mem_num: # in GB
   signalp6: [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2] # [0, 100), [100, 200), [200, 300), [300, 400), [400, 500), [500, 600), [600, 700), [700, 800), [800, 900), [900, 1000), [1000, 2000), [2000, inf)
-  hhblits_uniref1: [12, 12, 12, 14, 17, 15, 19, 13, 30, 57, 28, 30]
-  hhblits_uniref2: [12, 12, 12, 12, 15, 16, 17, 13, 18, 47, 25, 30]
-  hhblits_uniref3: [12, 12, 12, 12, 15, 16, 17, 13, 18, 47, 25, 30]
+  hhblits_uniref_1: [12, 12, 12, 14, 17, 15, 19, 13, 30, 57, 28, 30]
+  hhblits_uniref_2: [12, 12, 12, 12, 15, 16, 17, 13, 18, 47, 25, 30]
+  hhblits_uniref_3: [12, 12, 12, 12, 15, 16, 17, 13, 18, 47, 25, 30]
   hhblits_bfd: [30, 30, 30, 30, 30, 42, 47, 31, 30, 30, 42, 80]
   psipred: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
   hhsearch: [10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10]
 
-total_core_num: auto
+max_job_mem_num: 10000000 # in GB
 
-total_mem_num: auto
+initial_step: signalp6
+
+total_avaliable_core: auto
+
+total_avaliable_mem: auto
 
 mem_buffer: 10 # in GB
 

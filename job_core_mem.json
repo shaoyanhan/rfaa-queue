@@ -20,7 +20,7 @@
             2,
             2
         ],
-        "hhblits_uniref1": [
+        "hhblits_uniref_1": [
             12,
             12,
             12,
@@ -34,7 +34,7 @@
             28,
             30
         ],
-        "hhblits_uniref2": [
+        "hhblits_uniref_2": [
             12,
             12,
             12,
@@ -48,7 +48,7 @@
             25,
             30
         ],
-        "hhblits_uniref3": [
+        "hhblits_uniref_3": [
             12,
             12,
             12,
