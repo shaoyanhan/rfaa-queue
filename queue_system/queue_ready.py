@@ -29,12 +29,14 @@ class MultiLevelPriorityQueue:
         self.lock = self.manager.Lock()
 
     def add_task(self, task_element):
+        print(f"Adding task to ready queue: \n{task_element}")
         step = task_element.step
         if step not in self.queues:
             raise ValueError(f"Invalid step: {step}")
-        task_element.priority = calculate_priority(step, task_element.params)
+        task_element.priority = calculate_priority(step, task_element)
         with self.lock:
-            print(f"Adding task to {step} queue with priority: \n{task_element} \nparams: {task_element.params}")
+            print(f"Adding task to {step} queue: \n{task_element}")
+            task_element.update_time()
             self.queues[step].put(task_element)
 
     def get_task(self):

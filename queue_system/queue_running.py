@@ -18,18 +18,34 @@ class QueueRunning:
 
     # 将任务添加到正常队列，并执行任务
     def add_to_normal(self, task_element):
-        task_element.priority = calculate_priority('normal', task_element.params)
+        print(f"任务 {task_element.id} 加入normal队列")
+        task_element.priority = calculate_priority('normal', task_element)
         with self.lock:
+            task_element.update_time()
             self.normal.put(task_element)
         # 执行任务
         run_task(task_element)
 
+    def remove_task(self, queue, task_element):
+        with self.lock:
+            temp_queue = []
+            while not queue.empty():
+                element = queue.get()
+                if element != task_element:
+                    temp_queue.append(element)
+            for element in temp_queue:
+                queue.put(element)
+
     def move_to_excess(self, task_element):
-        task_element.priority = calculate_priority('excess', task_element.params)
+        task_element.priority = calculate_priority('excess', task_element)
+        print(f"任务 {task_element.id} 移入超限队列, 优先级: {task_element.priority}")
         with self.lock:
             if task_element in self.normal:
-                self.normal.remove(task_element)
+                self.remove_task(self.normal, task_element)
+                print(f"任务 {task_element.id} 从正常队列移出")
+            task_element.update_time()
             self.excess.append(task_element)
+            print(f"任务 {task_element.id} 移入超限队列成功")
 
     def is_excess(self, task_element):
         # 检查任务实时占用内存是否超过预设值
@@ -39,39 +55,44 @@ class QueueRunning:
 
     def check_excess_and_move(self):
         for task_element in self.normal:
+            print(f"检查任务 {task_element.id} 是否超限")
             if self.is_excess(task_element):
+                print(f"任务 {task_element.id} 超限，移入超限队列")
                 self.move_to_excess(task_element)
 
     def suspend_task(self, task_element):
         # 暂时挂起任务
         self.suspend_task_process_tree(task_element.pid)
-        task_element.priority = calculate_priority('suspend', task_element.params)
+        task_element.priority = calculate_priority('suspend', task_element)
         with self.lock:
             if task_element in self.normal:
-                self.normal.remove(task_element)
+                self.remove_task(self.normal, task_element)
             elif task_element in self.excess:
-                self.excess.remove(task_element)
+                self.remove_task(self.excess, task_element)
+            task_element.update_time()
             self.suspend.append(task_element)
 
     def resume_task(self, task_element):
         # 恢复挂起任务
         with self.lock:
-            if not task_element in self.suspend:
-                return
             self.resume_task_process_tree(task_element.pid)
-            task_element.priority = calculate_priority('normal', task_element.params)
-            self.suspend.remove(task_element)
+            task_element.priority = calculate_priority('normal', task_element)
+            task_element.update_time()
             self.normal.append(task_element)
 
     def kill_a_task(self):
         with self.lock:
             if not self.normal.empty():
+                print("normal队列不为空，取出一个任务")
                 task_element = self.normal.get()
             elif not self.excess.empty():
+                print("normal队列为空，excess队列不为空，取出一个任务")
                 task_element = self.excess.get()
             elif not self.suspend.empty():
+                print("normal队列、excess队列为空，suspend队列不为空，取出一个任务")
                 task_element = self.suspend.get()
             else:
+                print("所有队列为空，无任务可取")
                 return
             
             # 杀死任务
@@ -88,11 +109,12 @@ class QueueRunning:
         # 任务结束，移出运行队列
         with self.lock:
             if task_element in self.normal:
-                self.normal.remove(task_element)
+                self.remove_task(self.normal, task_element)
             elif task_element in self.excess:
-                self.excess.remove(task_element)
+                self.remove_task(self.excess, task_element)
             elif task_element in self.suspend:
-                self.suspend.remove(task_element)
+                self.remove_task(self.suspend, task_element)
+            queue_finished.add_task(task_element)
 
     def is_empty(self):
         with self.lock:
@@ -105,6 +127,7 @@ class QueueRunning:
             print(f"process: {processes}")
             total_memory = sum(proc.memory_info().rss for proc in processes)
             total_memory_gb = total_memory / (1024 ** 3)
+            print(f"Process with PID {pid} uses {total_memory_gb} GB memory.")
             return total_memory_gb
         except psutil.NoSuchProcess:
             print(f"Process with PID {pid} does not exist.")
@@ -202,18 +225,21 @@ class QueueRunning:
             high_io_task = None
             high_io_rate = 0
             if not self.normal.empty():
+                print("normal队列不为空, 遍历normal队列是否有高IO任务")
                 for task_element in self.normal:
                     io_rate = self.get_task_io_usage(task_element)
                     if io_rate > high_io_rate:
                         high_io_rate = io_rate
                         high_io_task = task_element
             elif not self.excess.empty():
+                print("normal队列为空, 遍历excess队列是否有高IO任务")
                 for task_element in self.excess:
                     io_rate = self.get_task_io_usage(task_element)
                     if io_rate > high_io_rate:
                         high_io_rate = io_rate
                         high_io_task = task_element
             else:
+                print("normal队列和excess队列均为空，无法获取高IO任务")
                 return None
             return high_io_task
 

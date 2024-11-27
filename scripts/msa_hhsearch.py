@@ -1,11 +1,19 @@
 import os
 import subprocess
 
-def terminate_hhsearch():
-    # TODO: change job node information, switch to next queue, clear temp files
-    return
+from queue_system.queue_finished import queue_finished
 
-def run_hhsearch(out_dir, cpu, mem, db_pdb70, log_file):
+
+def task_complete(task_element):
+    print(f'{task_element.step} step of {task_element.params["job_name"]} finished')
+
+    # 将任务加入finished队列等待资源回收
+    queue_finished.add_task(task_element)
+
+    print(f'all steps of {task_element.params["job_name"]} finished')
+
+
+def run_hhsearch(out_dir, cpu, mem, db_pdb70, log_file, task_element):
     out_prefix = os.path.join(out_dir, "t000_")
     final_msa = f"{out_prefix}.msa0.a3m"
     
@@ -22,3 +30,8 @@ def run_hhsearch(out_dir, cpu, mem, db_pdb70, log_file):
         """
         print(cmd)
         subprocess.run(cmd, shell=True, check=True)
+
+    else:
+        print(f"Missing {final_msa}, stopping HHsearch.")
+
+    task_complete(task_element)

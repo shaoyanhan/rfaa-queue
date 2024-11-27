@@ -1,12 +1,37 @@
 import os
 import subprocess
 
-def terminate_hhblits_uniref():
-    # TODO: change job node information, switch to next queue, clear temp files
-    return
+from queue_system.queue_finished import queue_finished
+from queue_system.queue_ready import queue_ready
+from scripts.utilities import get_job_mem_num, get_job_core_num
 
-# e_values = [1e-10, 1e-6, 1e-3]
-def run_hhblits_uniref(out_dir, in_fasta, cpu, mem, db_ur30, e_value, log_file):
+def task_complete(task_element, terminate):
+    print(f'{task_element.step} step of {task_element.params["job_name"]} finished')
+
+    # 将任务加入finished队列等待资源回收
+    queue_finished.add_task(task_element)
+
+    # 已经得到充足数量的msa，进行psipred操作
+    if terminate:
+        # 修改任务类型
+        task_element.step = "psipred"
+
+    # 获取任务所需的内存和核心数
+    task_element.mem = get_job_mem_num(task_element)
+    task_element.core = get_job_core_num(task_element)
+    print(f'任务{task_element}参数修改完毕，加入ready队列等待资源分配')
+    
+    # 将任务加入ready队列等待资源分配
+    queue_ready.add_task(task_element)
+
+
+def run_hhblits_uniref(out_dir, in_fasta, cpu, mem, db_ur30, e_value, log_file, task_element):
+    # 标识目前是否需要继续下一步hhblits操作
+    terminate = False
+
+    # e_value的列表，其中也包括了 hhblits_bfd 的，因为最后切换任务需要
+    e_value_list = [1e-10, 1e-6, 1e-3, 1e-3]
+
     final_msa = os.path.join(out_dir, "t000_.msa0.a3m")
     tmp_dir = os.path.join(out_dir, "hhblits")
     os.makedirs(tmp_dir, exist_ok=True)
@@ -45,6 +70,8 @@ def run_hhblits_uniref(out_dir, in_fasta, cpu, mem, db_ur30, e_value, log_file):
         if n75 > 2000 and not os.path.exists(final_msa):
             os.system(f"cp {a3m_file_id90cov75} {final_msa}")
             print(f"Found {n75} sequences in {a3m_file_id90cov75}, finishing the HHblits process.")
+            terminate = True
+            task_complete(task_element, terminate)
             return
 
 
@@ -66,8 +93,32 @@ def run_hhblits_uniref(out_dir, in_fasta, cpu, mem, db_ur30, e_value, log_file):
         if n50 > 4000 and not os.path.exists(final_msa):
             os.system(f"cp {a3m_file_id90cov50} {final_msa}")
             print(f"Found {n50} sequences in {a3m_file_id90cov50}, breaking the loop.")
+            terminate = True
+            task_complete(task_element, terminate)
             return
+        
+
+        # 没有得到足够数量的msa，继续下一步hhblits操作
+        params = task_element.params
+        # 修改fasta_file参数为上一步生成的a3m文件
+        params["fasta_file"] = a3m_file_id90cov50
+        # 检测下一个e_value
+        next_e_value = e_value_list[e_value_list.index(e_value) + 1]
+
+        # 根据e_value的值修改下一步任务类型
+        if next_e_value == e_value: # 如果下一个e_value和当前e_value相同, 则进行hhblits_bfd操作
+            task_element.step = "hhblits_bfd"
+        else:
+            params["e_value"] = next_e_value
+            task_element.step = f"hhblits_uniref_{e_value_list.index(e_value) + 1}"
+
+        task_element.params = params
+        task_complete(task_element, terminate)
+        
+        
 
     else:
         print(f"Found final result file: {final_msa}, skipping HHblits process.")
+        terminate = True
+        task_complete(task_element, terminate)
         return

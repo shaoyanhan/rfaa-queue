@@ -20,6 +20,7 @@ class QueueFinished:
 
     def add_task(self, task_element):
         with self.lock:
+            print(f"任务 {task_element.params["job_name"]} 已完成 {task_element.step} 步骤并加入完成队列")
             self.finished.put(task_element)
 
     def get_task(self):
