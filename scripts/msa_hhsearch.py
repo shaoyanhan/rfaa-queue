@@ -1,14 +1,15 @@
 import os
 import subprocess
 
-from queue_system.queue_finished import queue_finished
+from queue_system.queue_running import queue_running
 
 
 def task_complete(task_element):
     print(f'{task_element.step} step of {task_element.params["job_name"]} finished')
 
     # 将任务加入finished队列等待资源回收
-    queue_finished.add_task(task_element)
+    # queue_finished.add_task(task_element)
+    queue_running.finish_task(task_element)
 
     print(f'all steps of {task_element.params["job_name"]} finished')
 

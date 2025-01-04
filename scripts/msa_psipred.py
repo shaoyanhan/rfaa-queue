@@ -1,7 +1,7 @@
 import os
 import subprocess
 
-from queue_system.queue_finished import queue_finished
+from queue_system.queue_running import queue_running
 from queue_system.queue_ready import queue_ready
 from scripts.utilities import get_job_mem_num, get_job_core_num
 
@@ -10,7 +10,8 @@ def task_complete(task_element):
     print(f'{task_element.step} step of {task_element.params["job_name"]} finished')
 
     # 将任务加入finished队列等待资源回收
-    queue_finished.add_task(task_element)
+    # queue_finished.add_task(task_element)
+    queue_running.finish_task(task_element)
 
     # 修改参数为下一步 psipred 的相关参数
     task_element.step = "hhsearch"

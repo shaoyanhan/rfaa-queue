@@ -1,6 +1,7 @@
 import multiprocessing
 import psutil
 import time
+import copy
 from queue_system.queue_ready import queue_ready
 from queue_system.queue_running import queue_running
 from queue_system.queue_finished import queue_finished
@@ -87,7 +88,7 @@ class TaskScheduler:
                 # 如果运行队列为空，且就绪队列不为空，并且连续尝试次数大于10次，退出
                 else:
                     if allocate_try_times > 10:
-                        print("运行队列为空，就绪队列不为空，连续尝试次数过多，退出")
+                        print("运行队列为空，就绪队列不为空，连续尝试次数超过10次，退出")
                         break
             
             # 检查是否有任务超限
@@ -103,9 +104,9 @@ class TaskScheduler:
                 print("内存资源不足，尝试杀死任务")
                 memory_left = self.killer(memory_left)
                 if memory_left < 0:
-                    print("尝试杀死任务后内存资源仍不足，退出")
+                    print("尝试杀死任务后内存资源仍不足，终止队列系统")
                     break
-            print("成功杀死任务，memory_left: ", memory_left)
+                print("成功杀死任务，memory_left: ", memory_left)
             self.current_avaliable_mem = memory_left
 
             # 检查IO资源状态
@@ -131,7 +132,7 @@ class TaskScheduler:
         with self.lock:
             while not queue_finished.is_empty():
                 task_element = queue_finished.get_task()
-                print(f"任务 {task_element.id} 已完成，回收cpu资源: {task_element.cpu}")
+                print(f"任务 {task_element.pid} 已完成，回收cpu资源: {task_element.cpu}")
                 # 回收预分配的CPU资源，这里不计算内存资源，因为内存资源变动快，需要实时更新
                 core_cost = task_element.core
                 self.current_avaliable_core += core_cost
@@ -141,9 +142,9 @@ class TaskScheduler:
         with self.lock:
             step, task_element = queue_ready.get_task()
             if step and task_element:
-                print(f"尝试分配任务 {task_element.id} 到运行队列")
+                print(f"尝试分配任务 {task_element.pid} 到运行队列")
                 if not self.allocate_resources(task_element):
-                    print("任务 {task_element.id} 的资源需求超过剩余资源，无法分配")
+                    print("任务 {task_element.pid} 的资源需求超过剩余资源，无法分配")
                     return False
                 queue_running.add_to_normal(task_element)
 
@@ -154,20 +155,28 @@ class TaskScheduler:
         with self.lock:
             # 如果IO等待时间超过最大等待时间，挂起任务
             if wa >= self.wait_time_max:
-                print("IO等待时间超过最大等待时间，尝试挂起任务")
+                print(f"IO等待时间超过最大等待时间{self.wait_time_max}%，尝试挂起任务")
                 task_element = queue_running.get_a_high_io_task()
                 if not task_element:
                     print("没有找到可以挂起的任务")
                     return
-                print(f"挂起任务 {task_element.id}")
+                print(f"挂起任务 {task_element.pid}")
                 queue_running.suspend_task(task_element)
 
             # 如果IO等待时间小于中等等待时间，恢复挂起的任务
             elif wa < self.wait_time_mid:
                 print("IO等待时间小于中等等待时间，尝试恢复挂起任务")
                 if not queue_running.suspend.empty():
-                    task_element = queue_running.suspend.get()
-                    queue_running.resume_task(task_element)
+                    # 将suspend队列的排序结构进行复制，然后依次遍历每一个元素的core和mem，如果当前资源足够则恢复任务
+                    copy_suspend = queue_running.copy_queue(queue_running.suspend)
+                    for task_element in copy_suspend:
+                        if self.allocate_resources(task_element):
+                            print(f"恢复任务 {task_element.pid}")
+                            queue_running.resume_task(task_element)
+                        else:
+                            print(f"任务 {task_element.pid} 的资源需求超过剩余资源，无法恢复, 暂时保持挂起状态")
+                    # task_element = queue_running.suspend.get()
+                    # queue_running.resume_task(task_element)
                     return
                 print("没有挂起的任务可以恢复")
 
@@ -216,6 +225,9 @@ class TaskScheduler:
     def check_sufficient_resources(self):
         # 检查内存和cpu资源是否足够
         return self.current_avaliable_core > 0 and self.current_avaliable_mem > 0
+    
+    def recycle_core(self, core_num):
+        self.current_avaliable_core += core_num
     
     
     def allocate_resources(self, task_element):

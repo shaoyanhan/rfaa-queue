@@ -12,9 +12,11 @@ class Config:
             raise Exception("This class is a singleton! Use the 'global_config' instance.")
     
     def set_args(self, args):
+        print(f'set_args called, args: {args}')
         self.args = args
     
     def get_args(self):
+        print('get_args called, args: {self.args}')
         return self.args
     
 global_config = Config()

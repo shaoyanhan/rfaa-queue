@@ -1,15 +1,17 @@
 import time
 
 class TaskElement:
-    def __init__(self, step, len, params):
+    def __init__(self, step, len, id, params):
         self._step = step  # 初始化任务步骤
         self._len = len # 初始化蛋白序列长度
+        self._id = id # 初始化任务 ID, 唯一标识任务的编号，pid只是进程号，可能会重复
         self._params = params  # 初始化受保护的任务参数
         self._priority = None  # 初始化优先级
-        self._pid = None  # 初始化进程 ID
+        self._pid = None  # 初始化进程 PID
         self._core = None  # 预分配的 core 数量
         self._mem = None  # 预分配的内存数量
         self._time = None  # 初始化时间戳
+        # TODO: 记录持续运行时间用于kill时判断杀死成本
 
     @property
     def step(self):
@@ -30,6 +32,11 @@ class TaskElement:
     def len(self, value):
         """蛋白序列长度的 setter 方法"""
         self._len = value
+
+    @property
+    def id(self):
+        """任务 ID 的 getter 方法，只读属性"""
+        return self._id
 
     @property
     def priority(self):
@@ -99,6 +106,7 @@ class TaskElement:
         timestamp = time.time()
         # 去除小数部分
         self._time = int(timestamp)
+        print(f"Task updated time: {self._time}")
 
     # 重写 __repr__ 方法，用于打印任务信息 
     def __repr__(self):

@@ -15,6 +15,8 @@ def get_fasta_seq_len(fasta_file):
         sequence = ''.join(line.strip() for line in lines if not line.startswith('>'))
         seq_length = len(sequence)
 
+    print(f"Sequence length of file {fasta_file} is: {seq_length}")
+
     return seq_length
 
 

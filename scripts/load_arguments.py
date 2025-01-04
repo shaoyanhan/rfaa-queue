@@ -55,7 +55,9 @@ Options:
     print(help_message)
 
 def load_arguments():
-        # Default config path
+    print("Loading arguments...")
+
+    # Default config path
     default_config_path = "configuration.yaml"
     
     # Argument parsing with short and long options

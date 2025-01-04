@@ -62,7 +62,7 @@ def initialize_queue(args):
                             "fasta_file": fasta_file
                         }
 
-                        task_element = TaskElement(initial_step, seq_length, task_params)
+                        task_element = TaskElement(initial_step, seq_length, job_count, task_params)
 
                         # 获取任务所需的内存和核心数
                         task_element.mem = get_job_mem_num(task_element)
